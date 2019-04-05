@@ -60,7 +60,7 @@ DEFAULT_HOST = 'localhost'
 DEFAULT_USER = getpass.getuser()
 DEFAULT_PORT = 5433
 DEFAULT_PASSWORD = ''
-DEFAULT_READ_TIMEOUT = 600
+DEFAULT_READ_TIMEOUT = 1200
 DEFAULT_LOG_LEVEL = logging.WARNING
 DEFAULT_LOG_PATH = 'vertica_python.log'
 ASCII = 'ascii'
@@ -293,12 +293,36 @@ class Connection(object):
         self.address_list = _AddressList(self.options['host'], self.options['port'],
                                          self.options.get('backup_server_node', []), self._logger)
 
+    def set_keepalive_linux(self, sock, after_idle_sec=60, interval_sec=60, max_fails=10):
+        """Set TCP keepalive on an open socket.
+        It activates after after_idle_sec of idleness,
+        then sends a keepalive ping once every interval_sec,
+        and closes the connection after max_fails failed ping ()
+        """
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, after_idle_sec)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
+
+    def set_keepalive_osx(sock, after_idle_sec=1, interval_sec=3, max_fails=5):
+        """Set TCP keepalive on an open socket.
+
+        sends a keepalive ping once every 3 seconds (interval_sec)
+        """
+        # scraped from /usr/include, not exported by python's socket module
+        TCP_KEEPALIVE = 0x10
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        sock.setsockopt(socket.IPPROTO_TCP, TCP_KEEPALIVE, interval_sec)
+
     def _socket(self):
         if self.socket:
             return self.socket
 
         # the initial establishment of the client connection
         raw_socket = self.establish_connection()
+
+        # set keepalive
+        self.set_keepalive_linux(sock=raw_socket, after_idle_sec=60, interval_sec=60, max_fails=20)
 
         # enable load balancing
         load_balance_options = self.options.get('connection_load_balance')
