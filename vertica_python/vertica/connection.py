@@ -41,6 +41,7 @@ import socket
 import ssl
 import getpass
 import uuid
+import platform
 from struct import unpack
 from collections import deque
 
@@ -293,7 +294,7 @@ class Connection(object):
         self.address_list = _AddressList(self.options['host'], self.options['port'],
                                          self.options.get('backup_server_node', []), self._logger)
 
-    def set_keepalive_linux(self, sock, after_idle_sec=60, interval_sec=60, max_fails=10):
+    def set_keepalive_linux(self, sock, after_idle_sec=60, interval_sec=60, max_fails=20):
         """Set TCP keepalive on an open socket.
         It activates after after_idle_sec of idleness,
         then sends a keepalive ping once every interval_sec,
@@ -304,7 +305,7 @@ class Connection(object):
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
 
-    def set_keepalive_osx(sock, after_idle_sec=1, interval_sec=3, max_fails=5):
+    def set_keepalive_osx(self, sock, after_idle_sec=60, interval_sec=60, max_fails=20):
         """Set TCP keepalive on an open socket.
 
         sends a keepalive ping once every 3 seconds (interval_sec)
@@ -321,8 +322,10 @@ class Connection(object):
         # the initial establishment of the client connection
         raw_socket = self.establish_connection()
 
-        # set keepalive
-        self.set_keepalive_linux(sock=raw_socket, after_idle_sec=60, interval_sec=60, max_fails=20)
+        if platform.system() == 'Linux':
+            self.set_keepalive_linux(raw_socket)
+        elif platform.system() == 'Darwin':
+            self.set_keepalive_osx(raw_socket)
 
         # enable load balancing
         load_balance_options = self.options.get('connection_load_balance')
