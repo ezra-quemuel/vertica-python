@@ -294,7 +294,7 @@ class Connection(object):
         self.address_list = _AddressList(self.options['host'], self.options['port'],
                                          self.options.get('backup_server_node', []), self._logger)
 
-    def set_keepalive_linux(self, sock, after_idle_sec=60, interval_sec=60, max_fails=20):
+    def set_keepalive_linux(self, sock, after_idle_sec=60, interval_sec=60, max_fails=50):
         """Set TCP keepalive on an open socket.
         It activates after after_idle_sec of idleness,
         then sends a keepalive ping once every interval_sec,
@@ -305,7 +305,7 @@ class Connection(object):
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
 
-    def set_keepalive_osx(self, sock, after_idle_sec=60, interval_sec=60, max_fails=20):
+    def set_keepalive_osx(self, sock, after_idle_sec=60, interval_sec=60, max_fails=50):
         """Set TCP keepalive on an open socket.
 
         sends a keepalive ping once every 3 seconds (interval_sec)
